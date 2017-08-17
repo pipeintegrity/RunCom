@@ -15,8 +15,8 @@ ctr_all <- ctree(PoF~., risksub,
 plot(ctr_all,inner_panel = node_inner(ctr_all, id=F, pval = F) )
 
 #partition a smaller training partition
-risk_train <- createDataPartition(risksub$PoF,p=0.05,list=F)
+risk_train <- createDataPartition(risksub$PoF,p=0.1,list=F)
 training <- risksub[risk_train,]
-risk_rf3 <- train(PoF~.,training, method="rf", importance=T, nodesize=500,ntree=400)
+system.time(risk_rf5 <- train(PoF~.,training, method="rf", importance=T, nodesize=500,ntree=500))
 
-plot(varImp(risk_rf3), main='Risk Variable Importance (50K Sample)')
+plot(varImp(risk_rf5), main='Risk Variable Importance (100K Sample)')
