@@ -3,28 +3,32 @@ title: "Decision Trees and Risk"
 author: "Joel Anderson"
 date: "August 19, 2017"
 output: html_document
+
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+### Introduction
+Pipeline Risk algorithms can take in hundreds of variables and thousands of calculations to determine the probability of failure for a given segment of pipe.  Trying to determine what are the highest threat on a system wide or even over the length of a given line can be challenging.  A given threat might be high in one location and then exceeded by another a short distance away.  It can be compared to trying to predict the height of waves that are rising and falling, seemingly at random.  Trying to do this by just looking over a huge table of numbers is a exercise in frustration and tedium.  This is further complicated by the fact that it can be the interaction of threats that drive the overall probability of failure (PoF).
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Fortunately there exists methods that allow a person to explore the data set and find trends without having to manually sift through enormous tables of information.  The technique that will be discussed as the main focus of this article is a widely used machine learning tool used in data mining called decision trees.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+###Data mining and Machine Learning
+Before we proceed it is probably necessary to explain what is meant by those two terms.  Data mining is exactly what the name impies, it's a broad classification of methods used to try and extract meaningful trends from raw data.  Examples of data mining could be histograms or linear regression.  Machine learning takes data mining the next step of suing the computer to "learn" patterns without being explicity being programed to. A concrete example of this would be the movie streaming service that provides recomendations for new movies you might like based on what you've watched in the past.  So using these tools we can learn what's driving our overall risk on the system as a whole.  Then later on we will extend the process to infer what variables are haveing the largest effect on an individual threat for a given line.
 
-```{r cars}
-summary(cars)
-```
+## Data
+To start out, here is a random sample from a one-million dynamic segment risk results.  It includes the PoF's for the nine threats and then an overall PoF for that segment.  As you will typically see in a diverse system is that threats that are high in one location, may be considerably below average in another.  So if I wanted to know what threats correlate to higher risk it would be an excercise in futility to try and comb through one-million records and try to pull meaning out of them.
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r, echo=FALSE,message=FALSE}
+library(formattable)
+library(caret)
+risk_fil <- read.csv("risk_fil.csv")
+index <- createDataPartition(risk_fil$PoF,p = .0002,list=F)
+risk_ind <- round(risk_fil[index,10:19],2)
+rownames(risk_ind) <- NULL
+knitr::kable(risk_ind, caption = 'Data Table')
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
