@@ -2,8 +2,9 @@
 title: "Decision Trees and Risk"
 author: "Joel Anderson"
 date: "August 19, 2017"
-output: html_document
-
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -30,7 +31,9 @@ knitr::kable(risk_ind, caption = 'Sample Data Table')
 Let's start by explaining what is meant by those two terms and then move into the specifics of decision trees.  Data mining is exactly what the name implies, it's a broad classification of methods used to try and extract meaningful trends from raw data.  Examples of data mining could be histograms or linear regression.  Machine learning takes data mining the next step of using the computer to "learn" patterns without being explicitly being programmed to. A concrete example of this would be the movie streaming service that provides recommendations for new movies you might like based on what you've watched in the past.  So using these tools we can learn what's driving the overall risk of the system or part of the system.  Then later on we will extend the process to infer what variables are having the largest effect on an individual threat for a given line.
 
 ###Decision Trees
-The best way to introduce decision trees is with an initial sample that is easy to understand.  The following decision tree is based on a data set of the passengers of the Titanic.  The way to think of these is an upside down tree with root at the top and the leaves at the bottom.  Reading from the top down, we can see that out of the total passengers on the Titanic 38% (0.38) survived.  Then as we move down the tree,it shows what a difference sex, passenger class (plass) and age have on the survival rate.  Just by being male your chances of survival drop in half from 38% to 19% and accounted for 64% of the population. Looking at the next decision node on the male=yes branch, if your age is greater than 9.5 it drops further to 17%.  You will see that on this branch of the tree passenger class does not show up.  What this implies that if you were male passenger class had no affect on your chances of survival.  Similarly on the male=no branch, age doesn't show up as a classifier but passenger class does. This could be extended further to include other information such as number of siblings or embarkation location to find further interactions of variables but for the purposes of introduction we'll stop here and move on to more concrete examples using pipeline risk data.
+Decision trees fall into one of two categories,classification and regression.  Classification makes choices about the attributes and the value of that attribute would place them in one category or another (think taxonomy).  Regression trees work in a similar way but instead of trying to predict a category it is making predictions about the outcome of a continuous variable such as risk) based on the attributes associated with the outcome.  The way to think of these is an upside down tree with root at the top and the leaves at the bottom with the most important variables that have the largest impact on the outcome at the top and progressively smaller divisions as you follow the tree downward.
+
+The best way to introduce decision trees is with an initial sample that is easy to understand.  The following decision tree is based on a data set of the passengers of the Titanic.  Reading from the top down, we can see that out of the total passengers on the Titanic 38% (0.38) survived.  Then as we move down the tree,it shows what a difference sex, passenger class (plass) and age have on the survival rate.  Just by being male your chances of survival drop in half from 38% to 19% and accounted for 64% of the population. Looking at the next decision node on the male=yes branch, if your age is greater than 9.5 it drops further to 17%.  You will see that on this branch of the tree passenger class does not show up.  What this implies that if you were male passenger class had no affect on your chances of survival.  Similarly on the male=no branch, age doesn't show up as a classifier but passenger class does. This could be extended further to include other information such as number of siblings or embarkation location to find further interactions of variables but for the purposes of introduction we'll stop here and move on to more concrete examples using pipeline risk data.
 
 ```{r, echo=FALSE,,message=FALSE}
 library(rpart)
