@@ -3,8 +3,8 @@ title: "Decision Trees and Risk"
 author: "Joel Anderson"
 date: "August 19, 2017"
 output:
-  word_document: default
   html_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -28,12 +28,12 @@ knitr::kable(risk_ind, caption = 'Sample Data Table')
 ```
 
 ###Data mining and Machine Learning
-Let's start by explaining what is meant by those two terms and then move into the specifics of decision trees.  Data mining is exactly what the name implies, it's a broad classification of methods used to try and extract meaningful trends from raw data.  Examples of data mining could be histograms or linear regression.  Machine learning takes data mining the next step of using the computer to "learn" patterns without being explicitly being programmed to. A concrete example of this would be the movie streaming service that provides recommendations for new movies you might like based on what you've watched in the past.  So using these tools we can learn what's driving the overall risk of the system or part of the system.  Then later on we will extend the process to infer what variables are having the largest effect on an individual threat for a given line.
+Before starting, it would be useful to explaining what is meant by those two terms and then move into the specifics of decision trees.  Data mining is exactly what the name implies, it's a broad classification of methods used to try and extract meaningful trends from raw data.  Examples of data mining could be histograms or linear regression.  Machine learning takes data mining the next step of using the computer to "learn" patterns without being explicitly being programmed to and make predictions with new data with the same attributes. A concrete example of this would be the movie streaming service that provides recommendations for new movies you might like based on what you've watched in the past.  So using these tools we can learn what's driving the overall risk of the system or part of the system.  Then later on we will extend the process to infer what variables are having the largest effect on an individual threat for a given line.
 
 ###Decision Trees
 Decision trees fall into one of two categories,classification and regression.  Classification makes choices about the attributes and the value of that attribute would place them in one category or another (think taxonomy).  Regression trees work in a similar way but instead of trying to predict a category it is making predictions about the outcome of a continuous variable such as risk) based on the attributes associated with the outcome.  The way to think of these is an upside down tree with root at the top and the leaves at the bottom with the most important variables that have the largest impact on the outcome at the top and progressively smaller divisions as you follow the tree downward.
 
-The best way to introduce decision trees is with an initial sample that is easy to understand.  The following decision tree is based on a data set of the passengers of the Titanic.  Reading from the top down, we can see that out of the total passengers on the Titanic 38% (0.38) survived.  Then as we move down the tree,it shows what a difference sex, passenger class (plass) and age have on the survival rate.  Just by being male your chances of survival drop in half from 38% to 19% and accounted for 64% of the population. Looking at the next decision node on the male=yes branch, if your age is greater than 9.5 it drops further to 17%.  You will see that on this branch of the tree passenger class does not show up.  What this implies that if you were male passenger class had no affect on your chances of survival.  Similarly on the male=no branch, age doesn't show up as a classifier but passenger class does. This could be extended further to include other information such as number of siblings or embarkation location to find further interactions of variables but for the purposes of introduction we'll stop here and move on to more concrete examples using pipeline risk data.
+The best way to introduce decision trees is with an initial example that is easy to understand.  The following decision tree is based on a survival data set of the passengers of the Titanic.  Reading from the top down, we can see that out of the total passengers on the Titanic 38% (0.38) survived.  Then as we move down the tree,it predicts what a difference sex, passenger class (plass) and age have on the survival rate.  Just by being male your chances of survival drop in half from 38% to 19% and accounted for 64% of the population. Looking at the next decision node on the male=yes branch, if your age is greater than 9.5 it drops further to 17%.  You will see that on this branch of the tree passenger class does not show up.  What this implies that if you were male passenger class had an insignificant or no affect on your chances of survival.  Similarly on the male=no branch, age doesn't show up as a classifier however passenger class does, indicating that for females passenger passenger class was a factor. This could be extended further to include other information such as number of siblings or embarkation location to find further interactions of variables but for the purposes of introduction we'll stop here.  The main take away is that at each location the decision tree find the where to split each variable that will create the most homogeneous groups.  Next we will move on to more concrete examples using pipeline risk data and see how we can apply this same type of technique there to tell us more about our data.
 
 ```{r, echo=FALSE,,message=FALSE}
 library(rpart)
@@ -44,3 +44,47 @@ tree2 <- rpart(survived~age+sex+pclass, data=titan, cp=.02)
  rpart.plot::rpart.plot(tree2, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Titanic Survival Decision Tree")
 ```
 
+###Pipeline Risk Decision Tree
+The next example will make use of the full one million dynamic segment data that was sampled at the beginning of this article to make a decision tree. This will be slightly different than the Titanic example above.  Rather than trying to determining whether a variable would place it in one group or another (classification), the decision tree will determine the effect of variable splits on another dependent variable (regression).
+
+Risk is defined as the product of the Probability of Failure (PoF) and Consequence of Failure (CoF).  Since there are limited options for an operator to affect the consequences of a failure most integrity management efforts (assessments, etc.) are geared toward reducing the probability of failure.  Therefore this decision tree example will concentrate on the PoF side of the risk equation.  To start the discussion let's look at a completed decision tree for the risk dataset and then we will discuss what it is telling us about our risk results.
+
+```{r riskchunk, echo=FALSE, message=FALSE}
+risk_pof <- read.csv("risk_pof.csv")
+risk_pof <- risk_pof/100
+risk_tree <- rpart(PoF~., data = risk_pof,control = c(cp=0.02))
+rpart.plot::rpart.plot(risk_tree, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree")
+
+```
+
+In the same way as before, the tree is read from the top down and then each node will break the results into smaller and smaller groups that are homogeneous as possible.  The biggest break in the data is at Manufacturing threat less than 10% (0.1).  Then it is further split based on Third Party (TP) and External Corrosion (EC).  For example, if you follow the "no" branch of **Man < 0.1**, the first split is at **TP<0.42** which is further split at **EC<0.23** on the "yes" branch to an average PoF of 0.33 and 0.67 for greater than 0.23 (i.e the "no" branch for EC<0.023).  This implies that for high TP threat segments the highest PoF will be on the ones that also have a EC threat above 0.23.
+
+You may have noticed that the decision tree is only showing three threats out of the nine.  This isn't an error, what it means is there is no correlation between the other six threats and PoF.  For instance, Stress Corrosion Cracking threat might be high on some segments with a high PoF, yet low on segments that also have a high PoF. Therefore you are not going to be able to draw clear distinct groups based on SCC, implying that viewing the system as a whole, SCC is not a consistent driver of the overall risk.
+
+The value of decision trees is as in the name implies is in making decisions.  In the above scenario, if a pipeline operator wanted to have largest impact on their risk they should concentrate on their third party and external corrosion threats since outside of pipe replacement, there is limited that can be done to affect the manufacturing threat.  In fact it has been argued that manufacturing, construction and equipment are not "threats" in the sense that a threat is is an independent "force" that has an impact your line but rather weaknesses that makes the pipeline more susceptible to threats such as corrosion. In addition, outside of pipe or equipment replacement there is limited things an operator can do to reduce them.
+
+Since the over-arching goal of integrity management is to reduce the risk on your pipeline, combined with there is not much that can be done to reduce the three "weaknesses" it would make sense to revisit the risk decision tree.  This time we will create a decision tree based on the exact same dataset as above but this time sans the weaknesses. This will create a decision tree with only threats.
+
+```{r risk_tree_sans_weak, echo=FALSE, message=FALSE}
+risk_tree <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data = risk_pof,control = c(cp=0.02))
+rpart.plot::rpart.plot(risk_tree, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree \n Minus Weaknesses")
+
+```
+
+The tree based on threats alone didn't change the largest threats identified with the exception of natural hazard (Nhaz).  But what it did do is give a better picture of where the break-point of my highest threats are without  the weaknesses included in the analysis.  You can see that the highest risk segments are when TP exceeds 0.55 rather than 0.42 as before.  What this does is limit the scope of your highest risk lines from anything exceeding 42% to exceeding 55% now.  Making a smaller population of 14% (the sum of the **TP<0.55** branches) of the segments versus 31% (sum of the **TP<0.42** branches) to deal with in a risk reduction program.
+
+We have seen how decision trees can be used to learn about your system risk and how it can be used to make choices in your integrity program.  But since pipeline systems are not one single entity with identical information along its entire length and between different lines within the system, we have to be able to make decisions on a line by line basis.  Next we will use this same information in a more granular way to look at one particular Route.  
+```{r Route29, echo=FALSE, message=FALSE}
+risk <- read.csv("risk_fix.csv")
+risk <- subset(risk, RouteId==29)
+risk <- risk[,c(10:19)]/100
+risk_tree29 <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data =risk,control = c(cp=0.01))
+rpart.plot::rpart.plot(risk_tree29, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree \n For an Individual Route")
+```
+
+At the individual route level, once again third party and external corrosion show up as major drivers of risk but SCC which previously was not a significant correlation to risk at the system level is now showing up in the route specific analysis.
+
+In the same way that we applied this to an individual route, it is just as easy to extract the PoF for an individual threat along with its associated variables to learn what variables are driving it.  It would allow you to answer questions such as; for Third party threat, is one-call activity or class location a bigger factor?
+
+###Conclusion
+Pipeline risk analysis generates large volumes of data that can be overwhelming to attempt to digest simply by looking over the seemingly endless tables of numbers.  But unknowingly your data has a story to tell that is buried within all those numbers.  By using techniques such as decision trees it coaxes the story out of it and gives actionable information on what is driving your risk results.

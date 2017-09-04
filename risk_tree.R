@@ -24,5 +24,5 @@ plot(varImp(risk_rf5), main='Risk Variable Importance (100K Sample)')
 #titanic risk tree
 titan <- read.csv("titanic.csv")
 tree2 <- rpart(survived~age+sex+pclass, data=titan, cp=.02, method = "class")
-
+rpart.plot::rpart.plot(tree2, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Titanic Survival Decision Tree")
 
