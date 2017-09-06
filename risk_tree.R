@@ -26,3 +26,15 @@ titan <- read.csv("titanic.csv")
 tree2 <- rpart(survived~age+sex+pclass, data=titan, cp=.02, method = "class")
 rpart.plot::rpart.plot(tree2, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Titanic Survival Decision Tree")
 
+#Route specific decision tree
+risk <- risk[,c(3,10:19)]
+risk <- subset(risk, RouteId==29)
+risk_tree29 <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data =risk,control = c(cp=0.01))
+rpart.plot::rpart.plot(risk_tree29, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree \n For an Individual Route")
+
+
+#Decision tree sans weaknesses
+risk_pof <- read.csv("risk_pof.csv")
+risk_pof <- risk_pof/100
+risk_tree <- rpart(PoF~., data = risk_pof,control = c(cp=0.02))
+rpart.plot::rpart.plot(risk_tree, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree")
