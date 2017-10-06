@@ -1,0 +1,127 @@
+---
+title: "Decision Trees and Risk"
+author: "Joel Anderson"
+date: "August 19, 2017"
+slug: decision-trees
+tags:
+- decision tree
+- regression
+- risk
+categories: R
+---
+
+
+### Introduction
+Pipeline Risk algorithms can take in hundreds of variables and perform hundreds more calculations to determine the probability of failure for a given segment of pipe.  Trying to determine what threats are biggest contributor to a system's risk or even over the length of a given line can be challenging.  A given threat might be high in one location and then exceeded by another a short distance away.  It can be compared to trying to predict the height of waves that are rising and falling, seemingly at random.  Trying to do this by just looking over a large table of numbers is an exercise in frustration and tedium.  This is further complicated by the fact that it can be the interaction of threats that drive the overall probability of failure (PoF).
+
+### Data
+To start out, here is a random sample from a one-million dynamic segment risk results.  It includes the PoF's for the nine threats and then an overall PoF for that segment.  As you will typically see in a diverse system is that threats that are high in one location, may be considerably below average in another.  So, if a person wanted to know what threats correlate to higher risk, it would be futile to try and comb through one-million records and try to pull meaning out of them. Fortunately, there exists methods that allow for the exploration the data set and find trends without having to manually sift through enormous tables of information.  The technique that will be discussed as the main-focus of this article is a widely used machine learning tool used in data mining called decision trees.
+
+```{r, echo=FALSE,message=FALSE, warning=FALSE}
+library(formattable)
+library(caret)
+risk_fil <- read.csv("C:/Users/Joel/Documents/RunCom/risk_fil.csv")
+index <- createDataPartition(risk_fil$PoF,p = .0002,list=F)
+risk_ind <- round(risk_fil[index,10:19],2)
+rownames(risk_ind) <- NULL
+knitr::kable(risk_ind, caption = 'Sample Data Table')
+```
+
+###Data mining and Machine Learning
+Before starting, it would be useful to explaining what is meant by those two terms and then move into the specifics of decision trees.  Data mining is exactly what the name implies, it's a broad classification of methods used to try and extract meaningful trends from raw data.  Examples of data mining could be histograms or linear regression.  Machine learning takes data mining the next step of using the computer to "learn" patterns without being explicitly being programmed to and make predictions with new data with the same attributes. A concrete example of this would be the movie streaming service that provides recommendations for new movies you might like based on what you've watched in the past.  So, using these tools we can learn what's driving the overall risk of the system or part of the system.  Then later on we will extend the process to infer what variables are having the largest effect on an individual threat for a given line.
+
+###Decision Trees
+Decision trees fall into one of two categories, classification and regression.  Classification makes choices about the attributes and the value of that attribute would place them in one category or another (think taxonomy).  Regression trees work in a similar way but instead of trying to predict a category it is making predictions about the outcome of a continuous variable (such as risk) based on the values associated with the other variables. The way to think of decision trees is as an upside-down tree with root at the top and the leaves at the bottom with the most important variables that have the largest impact on the outcome at the top and progressively smaller divisions as you follow the tree downward.
+
+To introduce the concept of decision trees we'll start with an initial intuitive example that is easy understand.  If you are interested in how these are created, there will be a discussion at the end of the article that show the process of creating these.  The following decision tree is based on a survival data set of the passengers of the Titanic.  Reading from the top down, we can see that out of the total passengers on the Titanic 38% (0.38) survived.  Then as we move down the tree,it predicts what a difference sex, passenger class (pclass) and age have on the survival rate.  Just by being male your chances of survival drop in half from 38% to 19% and accounted for 64% of the population. Looking at the next decision node on the male="yes" branch, if your age is greater than 9.5 it drops further to 17%.  You will see that on this branch of the tree, passenger class does not show up.  What this implies that for males on the Titanic, passenger class had an insignificant or no effect on the chances of survival.  Similarly, on the male="no" branch, age doesn't show up as a classifier however passenger class does, indicating that for females,  passenger class was a factor in survival. This could be extended further to include other information such as number of siblings or embarkation location to find further interactions of variables but for the purposes of introduction this is a good stopping point.  The main take away is that at each location, the decision tree finds where to split each variable so that it will create the most homogeneous groups as possible.  Next, are more concrete examples using pipeline risk data and see how to apply this same technique to reveal information about risk data.
+
+```{r, echo=FALSE,message=FALSE}
+library(rpart)
+library(rattle)
+titan <- read.csv("C:/Users/Joel/Documents/RunCom/titanic.csv")
+tree2 <- rpart(survived~age+sex+pclass, data=titan, cp=.02)
+#fancyRpartPlot(tree2,main = "Titanic Survival Decision Tree",sub = "Titanic survival data set")
+ rpart.plot::rpart.plot(tree2, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Titanic Survival Decision Tree")
+```
+
+###Pipeline Risk Decision Tree
+The next example will make use of the full one-million dynamic segment data that was sampled at the beginning of this article to make a decision tree. This will be slightly different than the Titanic example above.  Rather than trying to determine whether a variable would place it in one group or another (classification), the decision tree will determine the effect of variable splits on another dependent variable (regression). i.e how does $x_1. x_2, x_3, etc.$ affect $y$?
+
+Risk is defined as the product of the Probability of Failure (PoF) and Consequence of Failure (CoF).  Outside of pipeline relocation, the options for an operator to affect the consequences of a failure are limited.  Therefore, most integrity management efforts (assessments, etc.) are geared toward reducing the probability of failure. Because of that, this decision tree example will concentrate on the PoF side of the risk equation.  To start out, look at a completed decision tree for the risk dataset and then the discussion will cover what it is telling us about the risk results.
+
+```{r riskchunk, echo=FALSE, message=FALSE}
+risk_pof <- read.csv("C:/Users/Joel/Documents/RunCom/risk_pof.csv")
+risk_pof <- risk_pof/100
+risk_tree <- rpart(PoF~., data = risk_pof,control = c(cp=0.02))
+rpart.plot::rpart.plot(risk_tree, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree")
+
+```
+
+In the same way as previously, the tree is read from the top down and then each node will break the results into smaller and smaller groups that are homogeneous as possible.  The biggest break in the data is at Manufacturing (Man) threat less than 10% (0.1).  Then it is further split based on Third Party (TP) and External Corrosion (EC).  For example, if you follow the "no" branch of **Man < 0.1**, the first split is at **TP<0.42** which is further split at **EC<0.23** on the "yes" branch to an average PoF of 0.33 and 0.67 for greater than 0.23 (i.e the "no" branch for EC<0.23).  This implies that for high third party threat segments, the highest PoF will be on the ones that also have a EC threat above 0.23.
+
+It may have been noticed that the decision tree is only showing three threats out of the nine.  This isn't an error, what this indicates is there is no correlation between the other six threats and PoF.  For instance, Stress Corrosion Cracking (SCC) threat might be high on some segments with a high PoF, yet low on segments that also have a high PoF. Therefore you are not going to be able to draw distinct groups based on SCC.  This shows that SCC is not a consistent driver of the overall risk on a system wide basis.
+
+The value of decision trees is, as in the name implies, in making decisions.  In the above scenario, if a pipeline operator wanted to have the largest impact on their risk, in this case, they should concentrate on their third party and external corrosion threats since outside of pipe replacement, there are limited actions that would affect the manufacturing threat.  In fact, it has been argued that manufacturing, construction and equipment are not "threats" in the sense that a threat is is an independent "force" that has an impact on a pipeline but rather weaknesses that make the it more susceptible to threats such as corrosion or third party damage. In addition, outside of pipe or equipment replacement an operator has little to no influence on these issues that are pre-existing in the pipe due to legacy manufacturing or construction practices.
+
+Since the over-arching goal of integrity management is to reduce the risk on the pipeline system, combined with limited options to reduce the three "weaknesses", it would make would be prudent to revisit the risk decision tree.  This time it will be created based on the exact same dataset as above, but this time sans the weaknesses creating a decision tree with only threats that the operator has influence over.
+
+```{r risk_tree_sans_weak, echo=FALSE, message=FALSE}
+risk_tree <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data = risk_pof,control = c(cp=0.02))
+rpart.plot::rpart.plot(risk_tree, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree \n Minus Weaknesses")
+
+```
+
+The tree based on threats alone didn't change the largest threats identified except for natural hazard (Nhaz).  But what it did do is give a better picture of where the break-point of the highest threats are without the weaknesses included in the analysis.  Now the highest risk segments are when third party threat exceeds 0.55 rather than 0.42 as before.  What this does is limit the scope of your highest risk lines from anything exceeding 42% to exceeding 55% now.  Making a smaller population of 14% (the sum of the **TP<0.55** branches) of the segments versus 31% (sum of the **TP<0.42** branches) to deal with in a risk reduction program.
+
+We have seen how decision trees can be used to learn about a system's risk and how it can be used to make choices in a integrity program.  But since pipeline systems are not one single entity with identical information along its entire length and between different lines within the system, we have to be able to make decisions on a line by line basis.  The next section will make use of this same information in a more granular way to look at one particular Route.
+
+```{r Route29, echo=FALSE, message=FALSE}
+risk <- read.csv("C:/Users/Joel/Documents/RunCom/risk_fix.csv")
+risk <- subset(risk, RouteId==29)
+risk <- risk[,c(10:19)]/100
+risk_tree29 <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data =risk,control = c(cp=0.01))
+rpart.plot::rpart.plot(risk_tree29, nn=F, box.palette = "GnBu",shadow.col="gray",branch.lty=3,main = "Risk Regression Decision Tree \n For an Individual Route")
+```
+
+At the individual route level, once again third party and external corrosion show up as major drivers of risk but SCC which previously was not a significant correlation to risk at the system level is now showing up in the route specific analysis indicating for this route, SCC is a significant threat, indicating that SCC is not a large threat to the whole system but on specific routes it can be a significant threat.
+
+In the same way that this was applied to an individual route, it is an identical process to use the PoF for an individual threat along with its associated variables to learn what is driving it at an individual threat level.  It would allow an operator to answer such questions as; for third party threat, is one-call activity or class location a bigger factor?  Or for external corrosion, does coating type or age make a larger contribution to the threat?
+
+###Conclusion
+Pipeline risk analysis generates large volumes of data that can be overwhelming to attempt to digest simply by looking over the seemingly endless rows and columns of numbers.  But unknowingly, your data has a story to tell that is buried within all those numbers.  By using techniques such as this, it coaxes the story out of it and gives actionable information on what is driving your system-wide, individual route level or threat specific risk.
+
+###Creating a Decision Tree
+Although it's is technically possible to create one of these with a spreadsheet I wouldn't recommend it.  To do so would mean programming complex algorithms and having to modify them for different size datasets and parameters each time.  Fortunately there are far better solutions that are more flexible, robust and easier to use.  My weapon of choice is called R.  Yes, the name of it is the letter R, that's it. It's an open source statistical language and environment that is freely available at <https://cran.r-project.org/>  and you will want the companion program R Studio <http://www.rstudio.com> which makes interfacing with R much easier.  You do not have to be a programmer to use it either.  A few simple commands and you are well on your way.  The best thing is that since R is one of the most commonly used tools for statistics and data science there are endless tutorials on whatever subject, from the most basic, to the most advanced that are only a web search away.  Since there are an exceeding abundance of excellent tutorials on the web and the intent is to just introduce R, I won't take up space going into such things as installing R and R Studio and how packages are installed.  None of which is difficult it's just outside the scope here.
+
+In this next section I will show you the commands to complete a decision tree in R.  When you see text in a gray box: 
+```{r exampletext, echo=TRUE}
+#like this
+```
+
+It's an R command that you would type in to the command window.  My example lines of code will all begin with a pound sign (#).  R interprets anything after a pound sign as a comment and doesn't attempt to execute it.  Since I only want to show the code and not execute it, I'll "comment out" all of it, when it comes to the real thing you will enter the code without the pound sign.  Now in the next section I'll show how to create your own regression tree.  After each line of code I'll include a comment (starting with a double pound sign, ##) explaining what it's doing.
+
+```{r regressionTreeExample, echo=TRUE, message=FALSE}
+#library(rpart)
+#library(rattle)
+#library(rpart.plot)
+
+##This loads three specialty packages that were previously installed to make them available.
+##Again, see basic R tutorials on installing packages
+
+#risk_pof <- read.csv("C:/Users/Joel/Documents/RunCom/risk_pof.csv")
+##This reads a CSV file I exported from a risk results with all the PoF's and assigns the dataframe the name "risk_pof".
+
+#risk_tree <- rpart(PoF~EC+IC+SCC+TP+IO+Nhaz, data = risk_pof,control = c(cp=0.02))
+##This executes the "rpart" command from the rpart library loaded on the first line and assigns the name of "risk_tree" to it.
+#####Function Arguments#####
+##(PoF~EC+IC+SCC+TP+IO+Nhaz): This tells the rpart command that the PoF variable is dependent on (~) all the variables following it
+##(data = risk_pof): Where is the data coming from?  Tells it the name of the dataframe to get the variables
+##(control = c(cp=0.02)): More on the meaning of this later.
+
+#rpart.plot(risk_tree)
+##Creates a plot of the decsion tree in the above command line
+##Numerous commands can be added to the above to customize the appearance but this will give you a basic plot
+
+```
+
+
